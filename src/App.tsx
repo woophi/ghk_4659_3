@@ -1,6 +1,5 @@
 import { ButtonMobile } from '@alfalab/core-components/button/mobile';
 import { Gap } from '@alfalab/core-components/gap';
-import { Input } from '@alfalab/core-components/input';
 import { PureCell } from '@alfalab/core-components/pure-cell';
 import { Radio } from '@alfalab/core-components/radio';
 import { Steps } from '@alfalab/core-components/steps';
@@ -24,8 +23,6 @@ import { LS, LSKeys } from './ls';
 import { appSt } from './style.css';
 import { ThxLayout } from './thx/ThxLayout';
 import { sendDataToGA, sendDataToGAFirstInfo } from './utils/events';
-
-const brokersWithApi = ['Т-инвестиции', 'Алор', 'Фридом финанс', 'Финам'];
 
 const data = [
   {
@@ -81,12 +78,9 @@ const data = [
 export const App = () => {
   const [loading, setLoading] = useState(false);
   const [thxShow, setThx] = useState(LS.getItem(LSKeys.ShowThx, false));
-  const [steps, setStep] = useState<'init' | 'step1' | 'step2' | 'step3'>('init');
+  const [steps, setStep] = useState<'init' | 'step1' | 'step2'>('init');
   const [selectedOption, setSelectedOption] = useState('Т-инвестиции');
-  const [selectedOptionUpload, setSelectedOptionUpload] = useState<'auto' | 'upload' | 'manual' | ''>('');
-  const [selectedActivesAmount, setSelectedActivesAmount] = useState<'one' | 'multiple'>('one');
   const [errorUpload, setErrorUpload] = useState('');
-  const [apiToken, setApiToken] = useState('');
 
   useEffect(() => {
     if (!LS.getItem(LSKeys.UserId, null)) {
@@ -94,25 +88,14 @@ export const App = () => {
     }
   }, []);
 
-  const submit = (skipTokenCheck: boolean) => {
-    if (!apiToken && !skipTokenCheck) {
-      setErrorUpload('Введите токен');
-      return;
-    }
+  const submit = () => {
     setErrorUpload('');
     setLoading(true);
 
     sendDataToGA({
       broker: selectedOption,
       broker_next: 'None',
-      type:
-        selectedOptionUpload === 'auto'
-          ? 'API'
-          : selectedOptionUpload === 'upload'
-          ? 'report'
-          : selectedActivesAmount === 'one'
-          ? 'add_one'
-          : 'add_more',
+      type: 'report',
     }).then(() => {
       // LS.setItem(LSKeys.ShowThx, true);
       setThx(true);
@@ -121,19 +104,13 @@ export const App = () => {
   };
 
   if (thxShow) {
-    return <ThxLayout selectedOptionUpload={selectedOptionUpload} />;
+    return <ThxLayout isUploadOrAuto={steps === 'step2'} />;
   }
 
   switch (steps) {
-    case 'step3': {
+    case 'step2': {
       return (
-        <Step3
-          apiToken={apiToken}
-          setApiToken={setApiToken}
-          submit={submit}
-          loading={loading}
-          selectedOptionUpload={selectedOptionUpload}
-          errorUpload={errorUpload}
+        <Step2
           onDrop={(acceptedFiles: File[]) => {
             const file = acceptedFiles[0];
             if (!file) {
@@ -141,29 +118,10 @@ export const App = () => {
               return;
             }
 
-            submit(true);
+            submit();
           }}
-          selectedActivesAmount={selectedActivesAmount}
-          setSelectedActivesAmount={setSelectedActivesAmount}
-        />
-      );
-    }
-
-    case 'step2': {
-      return (
-        <Step2
-          goNext={() => {
-            if (selectedOptionUpload === '') {
-              setErrorUpload('Выберите способ подключения');
-              return;
-            }
-            setErrorUpload('');
-            setStep('step3');
-          }}
-          selectedOption={selectedOption}
-          selectedOptionUpload={selectedOptionUpload}
-          setSelectedOptionUpload={setSelectedOptionUpload}
           errorUpload={errorUpload}
+          loading={loading}
         />
       );
     }
@@ -197,26 +155,14 @@ export const App = () => {
   }
 };
 
-const Step3 = ({
-  selectedOptionUpload,
-  apiToken,
+const Step2 = ({
   errorUpload,
   loading,
-  setApiToken,
-  submit,
   onDrop,
-  selectedActivesAmount,
-  setSelectedActivesAmount,
 }: {
-  selectedOptionUpload: 'auto' | 'upload' | 'manual' | '';
-  submit: (skipTokenCheck: boolean) => void;
   loading: boolean;
-  apiToken: string;
-  setApiToken: (o: string) => void;
   errorUpload: string;
   onDrop: (acceptedFiles: File[]) => void;
-  selectedActivesAmount: 'one' | 'multiple';
-  setSelectedActivesAmount: (o: 'one' | 'multiple') => void;
 }) => {
   const { getInputProps, open: openDropzone } = useDropzone({
     noClick: true,
@@ -230,219 +176,32 @@ const Step3 = ({
     maxFiles: 1,
   });
 
-  switch (selectedOptionUpload) {
-    case 'manual': {
-      return (
-        <>
-          <div className={appSt.container}>
-            <Typography.Text style={{ marginTop: '1rem' }} view="tagline">
-              Шаг 3 из 3
-            </Typography.Text>
-
-            <Typography.TitleResponsive tag="h1" view="large" font="system" weight="semibold">
-              Добавление актива
-            </Typography.TitleResponsive>
-
-            <Typography.Text view="primary-medium">
-              Выберите сколько хотите добавить активов и заполните данные — это поможет анализировать изменения в портфеле
-            </Typography.Text>
-
-            <div className={appSt.box} onClick={() => setSelectedActivesAmount('one')}>
-              <PureCell horizontalPadding="none" verticalPadding="none">
-                <PureCell.Content>
-                  <PureCell.Main>
-                    <Typography.Text view="primary-medium" tag="p" defaultMargins={false}>
-                      Добавить один актив
-                    </Typography.Text>
-                  </PureCell.Main>
-                </PureCell.Content>
-                <PureCell.Addon verticalAlign="center">
-                  <Radio size={24} name="activesAmount" checked={selectedActivesAmount === 'one'} />
-                </PureCell.Addon>
-              </PureCell>
-            </div>
-            <div className={appSt.box} onClick={() => setSelectedActivesAmount('multiple')}>
-              <PureCell horizontalPadding="none" verticalPadding="none">
-                <PureCell.Content>
-                  <PureCell.Main>
-                    <Typography.Text view="primary-medium" tag="p" defaultMargins={false}>
-                      Добавить несколько активов
-                    </Typography.Text>
-                  </PureCell.Main>
-                </PureCell.Content>
-                <PureCell.Addon verticalAlign="center">
-                  <Radio size={24} name="activesAmount" checked={selectedActivesAmount === 'multiple'} />
-                </PureCell.Addon>
-              </PureCell>
-            </div>
-          </div>
-          <Gap size={96} />
-          <div className={appSt.bottomBtn}>
-            <ButtonMobile block view="primary" onClick={() => submit(true)} loading={loading}>
-              Продолжить
-            </ButtonMobile>
-          </div>
-        </>
-      );
-    }
-    case 'auto': {
-      return (
-        <>
-          <div className={appSt.container}>
-            <Typography.Text style={{ marginTop: '1rem' }} view="tagline">
-              Шаг 3 из 3
-            </Typography.Text>
-
-            <Typography.TitleResponsive tag="h1" view="large" font="system" weight="semibold">
-              Настройка интеграции с Open API
-            </Typography.TitleResponsive>
-
-            <Typography.Text view="primary-medium">
-              Скопируйте токен «Только для чтения» в личном кабинете брокера и вставьте его сюда. Он нужен только для
-              загрузки списка сделок
-            </Typography.Text>
-
-            <Input
-              placeholder="Токен"
-              label="API токен"
-              labelView="outer"
-              hint="Токен из кабинета"
-              value={apiToken}
-              onChange={e => setApiToken(e.target.value)}
-              block
-            />
-          </div>
-          <Gap size={96} />
-          <div className={appSt.bottomBtn}>
-            <ButtonMobile block view="primary" onClick={() => submit(false)} loading={loading} hint={errorUpload}>
-              Подать заявку
-            </ButtonMobile>
-          </div>
-        </>
-      );
-    }
-
-    case 'upload': {
-      return (
-        <>
-          <div className={appSt.container}>
-            <Typography.Text style={{ marginTop: '1rem' }} view="tagline">
-              Шаг 3 из 3
-            </Typography.Text>
-
-            <Typography.TitleResponsive tag="h1" view="large" font="system" weight="semibold">
-              Загрузите отчёт
-            </Typography.TitleResponsive>
-
-            <Typography.Text view="primary-medium">Загрузите последний отчет от вашего брокера</Typography.Text>
-
-            <Steps isVerticalAlign={true} interactive={false} className={appSt.stepStyle}>
-              <Typography.Text view="primary-medium">
-                Скачайте отчет у вашего брокера. Обычно подходят файлы xls и html
-              </Typography.Text>
-              <Typography.Text view="primary-medium">Загрузите отчёт</Typography.Text>
-              <Typography.Text view="primary-medium">Дождитесь обработки файла</Typography.Text>
-            </Steps>
-          </div>
-          <Gap size={96} />
-          <div className={appSt.bottomBtn}>
-            <input {...getInputProps()} />
-            <ButtonMobile block view="primary" onClick={openDropzone} loading={loading} hint={errorUpload}>
-              Выбрать файл
-            </ButtonMobile>
-          </div>
-        </>
-      );
-    }
-
-    default:
-      return null;
-  }
-};
-
-const Step2 = ({
-  errorUpload,
-  goNext,
-  selectedOption,
-  selectedOptionUpload,
-  setSelectedOptionUpload,
-}: {
-  goNext: () => void;
-  selectedOptionUpload: 'auto' | 'upload' | 'manual' | '';
-  setSelectedOptionUpload: (o: 'auto' | 'upload' | 'manual' | '') => void;
-  errorUpload: string;
-  selectedOption: string;
-}) => {
   return (
     <>
       <div className={appSt.container}>
         <Typography.Text style={{ marginTop: '1rem' }} view="tagline">
-          Шаг 2 из 3
+          Шаг 2 из 2
         </Typography.Text>
 
         <Typography.TitleResponsive tag="h1" view="large" font="system" weight="semibold">
-          Выберите способ подключения
+          Загрузите отчёт
         </Typography.TitleResponsive>
 
-        {brokersWithApi.includes(selectedOption) && (
-          <div className={appSt.box} onClick={() => setSelectedOptionUpload('auto')}>
-            <PureCell horizontalPadding="none" verticalPadding="none">
-              <PureCell.Content>
-                <PureCell.Main>
-                  <Typography.Text view="primary-medium" tag="p" defaultMargins={false}>
-                    Автоматически
-                  </Typography.Text>
-                  <Typography.Text view="primary-small" color="secondary" tag="p" defaultMargins={false}>
-                    Подключите API и обновляйте данные без лишних действий
-                  </Typography.Text>
-                </PureCell.Main>
-              </PureCell.Content>
-              <PureCell.Addon verticalAlign="center">
-                <Radio size={24} name="uploadOptions" checked={selectedOptionUpload === 'auto'} />
-              </PureCell.Addon>
-            </PureCell>
-          </div>
-        )}
+        <Typography.Text view="primary-medium">Загрузите последний отчет от вашего брокера</Typography.Text>
 
-        <div className={appSt.box} onClick={() => setSelectedOptionUpload('upload')}>
-          <PureCell horizontalPadding="none" verticalPadding="none">
-            <PureCell.Content>
-              <PureCell.Main>
-                <Typography.Text view="primary-medium" tag="p" defaultMargins={false}>
-                  Загрузите отчет
-                </Typography.Text>
-                <Typography.Text view="primary-small" color="secondary" tag="p" defaultMargins={false}>
-                  Мы сами обработаем данные отчета
-                </Typography.Text>
-              </PureCell.Main>
-            </PureCell.Content>
-            <PureCell.Addon verticalAlign="center">
-              <Radio size={24} name="uploadOptions" checked={selectedOptionUpload === 'upload'} />
-            </PureCell.Addon>
-          </PureCell>
-        </div>
-        <div className={appSt.box} onClick={() => setSelectedOptionUpload('manual')}>
-          <PureCell horizontalPadding="none" verticalPadding="none">
-            <PureCell.Content>
-              <PureCell.Main>
-                <Typography.Text view="primary-medium" tag="p" defaultMargins={false}>
-                  Добавьте вручную
-                </Typography.Text>
-                <Typography.Text view="primary-small" color="secondary" tag="p" defaultMargins={false}>
-                  Внесите самостоятельно данные об активах
-                </Typography.Text>
-              </PureCell.Main>
-            </PureCell.Content>
-            <PureCell.Addon verticalAlign="center">
-              <Radio size={24} name="uploadOptions" checked={selectedOptionUpload === 'manual'} />
-            </PureCell.Addon>
-          </PureCell>
-        </div>
+        <Steps isVerticalAlign={true} interactive={false} className={appSt.stepStyle}>
+          <Typography.Text view="primary-medium">
+            Скачайте отчет у вашего брокера. Обычно подходят файлы xls и html
+          </Typography.Text>
+          <Typography.Text view="primary-medium">Загрузите отчёт</Typography.Text>
+          <Typography.Text view="primary-medium">Дождитесь обработки файла</Typography.Text>
+        </Steps>
       </div>
       <Gap size={96} />
       <div className={appSt.bottomBtn}>
-        <ButtonMobile block view="primary" onClick={goNext} hint={errorUpload}>
-          Продолжить
+        <input {...getInputProps()} />
+        <ButtonMobile block view="primary" onClick={openDropzone} loading={loading} hint={errorUpload}>
+          Выбрать файл
         </ButtonMobile>
       </div>
     </>
@@ -464,7 +223,7 @@ const Step1 = ({
     <>
       <div className={appSt.container}>
         <Typography.Text style={{ marginTop: '1rem' }} view="tagline">
-          Шаг 1 из 3
+          Шаг 1 из 2
         </Typography.Text>
 
         <Typography.TitleResponsive tag="h1" view="large" font="system" weight="semibold">
@@ -515,7 +274,7 @@ const InitStep = ({ goNext }: { goNext: () => void }) => {
           <Gap size={12} />
           <Steps isVerticalAlign={true} interactive={false} className={appSt.stepStyle}>
             <Typography.Text view="primary-medium">Выберите брокера</Typography.Text>
-            <Typography.Text view="primary-medium">Выберите удобный способ подключения</Typography.Text>
+            <Typography.Text view="primary-medium">Загрузите брокерский отчет</Typography.Text>
             <Typography.Text view="primary-medium">Следите за активами в Альфа-Инвестиции</Typography.Text>
           </Steps>
         </div>
@@ -526,7 +285,7 @@ const InitStep = ({ goNext }: { goNext: () => void }) => {
 
       <div className={appSt.bottomBtn}>
         <ButtonMobile block view="primary" onClick={goNext}>
-          Добавить портфель
+          Загрузить отчет
         </ButtonMobile>
       </div>
     </>

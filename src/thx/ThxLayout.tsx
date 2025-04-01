@@ -6,8 +6,7 @@ import { thxSt } from './style.css';
 
 const link = 'alfabank://investments';
 
-export const ThxLayout = ({ selectedOptionUpload }: { selectedOptionUpload: 'auto' | 'upload' | 'manual' | '' }) => {
-  const isUploadOrAuto = selectedOptionUpload === 'auto' || selectedOptionUpload === 'upload';
+export const ThxLayout = ({ isUploadOrAuto }: { isUploadOrAuto: boolean }) => {
   return (
     <>
       <div className={thxSt.container}>
